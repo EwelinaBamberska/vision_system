@@ -60,6 +60,21 @@ void set_state_of_client(int id, int new_state){
 	}	
 }
 
+void delete_client(int id){
+	int i = 0;
+	bool found = false;
+	for(i = 0; i < clients_number; i++){
+		if(states_of_clients[i][0] == id && i != clients_number - 1){
+			found = true;
+		}
+		if(found && i < clients_number - 1){
+			states_of_clients[i][0] == states_of_clients[i + 1][0];
+			states_of_clients[i][1] == states_of_clients[i + 1][0];
+		}
+	}
+	clients_number--;
+}
+
 int main(int argc, char *argv[]) {
 	char* bufff;
 	int signs_count = 500, actual_signs_count = 0, one_time_len = 0;
@@ -98,13 +113,17 @@ int main(int argc, char *argv[]) {
 		}
 		fda = rc;
 		//accepting new client
+
 		if(FD_ISSET(fd, &rmask)) {
 			fda -= 1;
+
 			slt = sizeof(c->caddr);
+
 			c->cfd = accept(fd, (struct sockaddr*)&c->caddr, &slt);
-			printf("new connection from: %s\n", inet_ntoa((struct 			in_addr)c->caddr.sin_addr));
+			printf("new connection from: %s\n", inet_ntoa((struct in_addr)c->caddr.sin_addr));
 
 			if(c->cfd > fdmax) fdmax = c->cfd;
+			
 			states_of_clients[clients_number][0] = c->cfd;
 			states_of_clients[clients_number][1] = 0;
 			clients_number++;
@@ -112,14 +131,15 @@ int main(int argc, char *argv[]) {
 		}
 
 		for(int i = fd + 1; i <= fdmax && fda > 0; i++){
+
 			if(FD_ISSET(i, &rmask)){
-			    if(actual_signs_count!= 0 )
-			    printf("STATE %d\n", get_state_of_client(i));
+			
 				//read type of client
+
 				if(get_state_of_client(i) == 0){
 					bufff = new char[3];
 					read(i, bufff, 3);
-					printf("%s\n", bufff);
+					printf("cl    %s\n", bufff);
 					if (bufff[0] == 's'){
 						client_fd = i;
 						FD_CLR(i, &rmask);
@@ -128,7 +148,8 @@ int main(int argc, char *argv[]) {
 				}
 				
 				//read amount of data
-				else if(get_state_of_client(i) == 1 && client_fd != i && !if_data_actually_read && !last_line){
+				if(get_state_of_client(i) == 1 && client_fd != i && !if_data_actually_read && !last_line && client_fd != -1){
+					printf("READ\n");
 					if_data_actually_read = true;
 					actual_client = i;
 					bufff = new char[12];
@@ -140,17 +161,18 @@ int main(int argc, char *argv[]) {
 					FD_SET(client_fd, &wmask);
 					FD_CLR(i, &rmask);
 				}
+				
 
-                else if(get_state_of_client(i) == 4 && client_fd != i && actual_client == i){
+                else if(get_state_of_client(i) == 4 && client_fd != i && actual_client == i && client_fd != -1){
+
 					bufff = new char[5000];
 
                     one_time_len = read(i, bufff, 5000);
                     actual_signs_count += one_time_len;
-                    if(actual_signs_count != 0)
-                    printf(" %d         %d\n", actual_signs_count, signs_count);
+
                     if(actual_signs_count >= signs_count){
 
-                        set_state_of_client(i, 5);
+                        set_state_of_client(i, 100);
 		
                         actual_client = -1;
 						last_line = true;
@@ -159,27 +181,30 @@ int main(int argc, char *argv[]) {
                         signs_count = 0;
                         actual_signs_count = 0;
                         
-                    	FD_SET(client_fd, &wmask);
+                        
+                    	FD_SET(client_fd, &wmask);      
+                    	FD_CLR(i, &rmask);
                         close(i);
+                        delete_client(i);
+                        printf("send\n");
                         break;
                     }
-                    FD_CLR(i, &rmask);
+					FD_CLR(i, &rmask);
                     FD_SET(client_fd, &wmask);
 
 				}
 			}
 		}
-		if(FD_ISSET(client_fd, &wmask)) {
+		if(client_fd != -1 && FD_ISSET(client_fd, &wmask)) {
 		    if(if_data_actually_read || last_line) {
-		    	if(last_line)
-		    		printf("KSDFSGER\n");
                 if (get_state_of_client(client_fd) == 1) {
                     write(client_fd, bufff, 12);
+                    printf("written\n");
                     char converted_ident[10];
                     int s = my_itoa(converted_ident, actual_client);
                     converted_ident[9] = '\n';
 
-                    write(client_fd, converted_ident, 10);
+                    //write(client_fd, converted_ident, 9);
                     set_state_of_client(client_fd, 4);
                     FD_CLR(client_fd, &wmask);
                     FD_SET(actual_client, &rmask);
@@ -187,19 +212,24 @@ int main(int argc, char *argv[]) {
                 //printf("write\n");
                 if (get_state_of_client(client_fd) == 4) {
                     write(client_fd, bufff, one_time_len);
-                    last_line = false;
                     FD_CLR(client_fd, &wmask);
                     if(!last_line)
                     	FD_SET(actual_client, &rmask);
                     if(last_line){
                     	set_state_of_client(client_fd, 1);
+                    	//close(client_fd);
+                    	//client_fd = -1;
+                    	last_line = false;
                     	printf("END\n");
                     }
                 }
             }
-			}
+            
+		}
+
     	
     }
+    printf("WHILE EXIT\n");
 
     close(fd);
 
