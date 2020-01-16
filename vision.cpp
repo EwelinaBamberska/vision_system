@@ -22,7 +22,7 @@ int fdmax, fda, rc;
 char buf [100];
 struct timeval timeout;
 bool if_data_actually_read = false, last_line = false;
-
+int actual_unique_id = 1;
 
 size_t my_itoa( char *s, unsigned int n )
 {
@@ -41,7 +41,6 @@ int states_of_clients[100][2];
 int clients_number = 0;
 
 int get_state_of_client(int id){
-	int state = 0;
 	int i = 0;
 	for (i = 0; i < clients_number; i++){
 		if(states_of_clients[i][0] == id)
@@ -68,8 +67,8 @@ void delete_client(int id){
 			found = true;
 		}
 		if(found && i < clients_number - 1){
-			states_of_clients[i][0] == states_of_clients[i + 1][0];
-			states_of_clients[i][1] == states_of_clients[i + 1][0];
+			states_of_clients[i][0] = states_of_clients[i + 1][0];
+			states_of_clients[i][1] = states_of_clients[i + 1][0];
 		}
 	}
 	clients_number--;
@@ -80,7 +79,6 @@ int main(int argc, char *argv[]) {
 	int signs_count = 500, actual_signs_count = 0, one_time_len = 0;
     socklen_t slt;
     struct sockaddr_in s_addr;
-    pthread_t tid;
 
     s_addr.sin_family = AF_INET;
     s_addr.sin_port = htons(1234);
@@ -127,37 +125,85 @@ int main(int argc, char *argv[]) {
 			states_of_clients[clients_number][0] = c->cfd;
 			states_of_clients[clients_number][1] = 0;
 			clients_number++;
+			
 			FD_SET(c->cfd, &rmask);
 		}
 
 		for(int i = fd + 1; i <= fdmax && fda > 0; i++){
-
 			if(FD_ISSET(i, &rmask)){
 			
 				//read type of client
-
 				if(get_state_of_client(i) == 0){
-					bufff = new char[3];
-					read(i, bufff, 3);
-					printf("cl    %s\n", bufff);
-					if (bufff[0] == 's'){
+					char* type = new char[3];
+					read(i, type, 3);
+					printf("cl    %s\n", type);
+					//client that waits for data
+					if (type[0] == 's'){
+					
+						//if there is new receiving client open the old one is replaced
+						if (client_fd != -1){
+							delete_client(client_fd);
+							close(client_fd);
+						}
+						
 						client_fd = i;
 						FD_CLR(i, &rmask);
+						set_state_of_client(i, 1);
 					}
-					set_state_of_client(i, 1);
+					
+					//client needs unique id
+					if (type[0] == 'i'){
+						printf("Id przydzielone\n");
+						FD_CLR(i, &rmask);
+						FD_SET(i, &wmask);
+						set_state_of_client(i, 1);
+					}
+					
+					//client has unique id
+					if(type[0] == 'c'){
+						set_state_of_client(i, 2);
+					}
+					
+				}
+				
+				//client waits for turn to send encoded image and send unique id or wants to exit
+				else if(get_state_of_client(i) == 2 && client_fd != i && !if_data_actually_read && !last_line && client_fd != -1) {
+					
+					
+					bufff = new char[4];
+					read(i, bufff, 4);
+					printf("READ ID %s\n", bufff);
+					
+					//clients wants to exit
+					if(bufff[0] == 'e'){
+						delete_client(i);
+						set_state_of_client(client_fd, 5);
+						FD_SET(client_fd, &wmask);
+						FD_CLR(i, &rmask);
+						close(i);
+						continue;
+					}
+					
+					if_data_actually_read = true;
+					actual_client = i;
+					
+					//client can send size of encoded image
+					set_state_of_client(i,3);
+					
+					FD_SET(client_fd, &wmask);
+					FD_CLR(i, &rmask);
 				}
 				
 				//read amount of data
-				if(get_state_of_client(i) == 1 && client_fd != i && !if_data_actually_read && !last_line && client_fd != -1){
+				else if(get_state_of_client(i) == 3 && client_fd != i && actual_client == i && client_fd != -1){
 					printf("READ\n");
-					if_data_actually_read = true;
-					actual_client = i;
 					bufff = new char[12];
 				 	read(i, bufff, 12);
-				 	int  j = 0;
 					signs_count = atoi(bufff);
 
+					//client can send encoded image
 					set_state_of_client(i, 4);
+					
 					FD_SET(client_fd, &wmask);
 					FD_CLR(i, &rmask);
 				}
@@ -171,22 +217,15 @@ int main(int argc, char *argv[]) {
                     actual_signs_count += one_time_len;
 
                     if(actual_signs_count >= signs_count){
-
-                        set_state_of_client(i, 100);
-		
-                        actual_client = -1;
+                        set_state_of_client(i, 2);
 						last_line = true;
-						
                         if_data_actually_read = false;
+                        
                         signs_count = 0;
                         actual_signs_count = 0;
-                        
-                        
-                    	FD_SET(client_fd, &wmask);      
+                       
+                    	FD_SET(client_fd, &wmask);
                     	FD_CLR(i, &rmask);
-                        close(i);
-                        delete_client(i);
-                        printf("send\n");
                         break;
                     }
 					FD_CLR(i, &rmask);
@@ -197,41 +236,64 @@ int main(int argc, char *argv[]) {
 		}
 		if(client_fd != -1 && FD_ISSET(client_fd, &wmask)) {
 		    if(if_data_actually_read || last_line) {
-                if (get_state_of_client(client_fd) == 1) {
+		    
+		    	
+                
+                //send unique id of client that want to send encoded image
+                if(get_state_of_client(client_fd) == 1) {
+                	write(client_fd, bufff, 4);
+					set_state_of_client(client_fd, 2);
+					FD_CLR(client_fd, &wmask);
+					FD_SET(actual_client, &rmask);
+                }
+                
+                //send amount of data that will be sent
+                else if (get_state_of_client(client_fd) == 2) {
                     write(client_fd, bufff, 12);
-                    printf("written\n");
-                    char converted_ident[10];
-                    int s = my_itoa(converted_ident, actual_client);
-                    converted_ident[9] = '\n';
-
-                    //write(client_fd, converted_ident, 9);
                     set_state_of_client(client_fd, 4);
                     FD_CLR(client_fd, &wmask);
                     FD_SET(actual_client, &rmask);
                 }
-                //printf("write\n");
-                if (get_state_of_client(client_fd) == 4) {
+
+				//send fragment of base64 image format
+                else if (get_state_of_client(client_fd) == 4) {
                     write(client_fd, bufff, one_time_len);
                     FD_CLR(client_fd, &wmask);
-                    if(!last_line)
-                    	FD_SET(actual_client, &rmask);
+                    FD_SET(actual_client, &rmask);
                     if(last_line){
+                        actual_client = -1;
                     	set_state_of_client(client_fd, 1);
-                    	//close(client_fd);
-                    	//client_fd = -1;
                     	last_line = false;
-                    	printf("END\n");
                     }
                 }
-            }
-            
+            } 
 		}
+		
+		if(get_state_of_client(client_fd) == 5 && FD_ISSET(client_fd, &wmask)) {
+        	write(client_fd, bufff, 4);
+			set_state_of_client(client_fd, 1);
+			FD_CLR(client_fd, &wmask);
+        }
+		
+		for(int i = fd + 1; i <= fdmax && fda > 0; i++){
 
+			if(client_fd != i && FD_ISSET(i, &wmask)){
+			
+				//send to client it's unique id
+				printf("Response with id send\n");
+				char unique_id[2];
+				my_itoa(unique_id, actual_unique_id);
+				actual_unique_id++;
+				write(i, unique_id, 2);
+				write(i, "\n", 2);
+				set_state_of_client(i, 2);
+				FD_CLR(i, &wmask);
+				FD_SET(i, &rmask);
+			}
+		}
     	
     }
-    printf("WHILE EXIT\n");
 
     close(fd);
-
     return EXIT_SUCCESS;
 }
