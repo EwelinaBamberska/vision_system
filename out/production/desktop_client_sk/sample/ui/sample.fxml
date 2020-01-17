@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.VBox?>
+
+<BorderPane prefHeight="312.0" prefWidth="418.0" xmlns="http://javafx.com/javafx/8.0.172-ea" xmlns:fx="http://javafx.com/fxml/1" fx:controller="sample.ui.Controller">
+   <right>
+      <ImageView fx:id="video" fitHeight="600.0" fitWidth="500.0" BorderPane.alignment="TOP_CENTER">
+         <BorderPane.margin>
+            <Insets top="40.0" />
+         </BorderPane.margin></ImageView>
+   </right>
+   <left>
+      <VBox maxWidth="500.0" minWidth="500.0" prefHeight="200.0" prefWidth="500.0" BorderPane.alignment="CENTER">
+         <children>
+            <Label maxHeight="40.0" maxWidth="500.0" minHeight="40.0" minWidth="500.0" prefHeight="40.0" prefWidth="500.0" text="Actually connected devices" />
+            <TableView fx:id="devicesTableView" maxHeight="560.0" maxWidth="500.0" minHeight="560.0" minWidth="500.0" prefHeight="560.0" prefWidth="500.0" />
+         </children></VBox>
+   </left>
+</BorderPane>
