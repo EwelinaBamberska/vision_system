@@ -1,0 +1,8 @@
+vision\logic\Device.class
+vision\app\Main.class
+vision\logic\Base64Converter.class
+vision\app\Main$1.class
+vision\ui\Controller.class
+vision\ui\JavafxThread.class
+vision\logic\SocketConnector.class
+vision\logic\SocketThread.class
