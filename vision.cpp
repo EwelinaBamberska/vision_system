@@ -130,6 +130,7 @@ int main(int argc, char *argv[]) {
 		}
 
 		for(int i = fd + 1; i <= fdmax && fda > 0; i++){
+
 			if(FD_ISSET(i, &rmask)){
 			
 				//read type of client
@@ -156,7 +157,7 @@ int main(int argc, char *argv[]) {
 						printf("Id przydzielone\n");
 						FD_CLR(i, &rmask);
 						FD_SET(i, &wmask);
-						set_state_of_client(i, 1);
+						//set_state_of_client(i, 1);
 					}
 					
 					//client has unique id
@@ -216,7 +217,8 @@ int main(int argc, char *argv[]) {
                     one_time_len = read(i, bufff, 5000);
                     actual_signs_count += one_time_len;
 
-                    if(actual_signs_count >= signs_count){
+                    if(actual_signs_count >= signs_count){	
+						printf("Send data\n");
                         set_state_of_client(i, 2);
 						last_line = true;
                         if_data_actually_read = false;
@@ -226,6 +228,8 @@ int main(int argc, char *argv[]) {
                        
                     	FD_SET(client_fd, &wmask);
                     	FD_CLR(i, &rmask);
+                    	delete_client(i);
+                    	close(i);
                         break;
                     }
 					FD_CLR(i, &rmask);
@@ -245,6 +249,7 @@ int main(int argc, char *argv[]) {
 					set_state_of_client(client_fd, 2);
 					FD_CLR(client_fd, &wmask);
 					FD_SET(actual_client, &rmask);
+					printf("Client uid send\n");
                 }
                 
                 //send amount of data that will be sent
@@ -253,14 +258,18 @@ int main(int argc, char *argv[]) {
                     set_state_of_client(client_fd, 4);
                     FD_CLR(client_fd, &wmask);
                     FD_SET(actual_client, &rmask);
+                	printf("size\n");
                 }
 
 				//send fragment of base64 image format
                 else if (get_state_of_client(client_fd) == 4) {
                     write(client_fd, bufff, one_time_len);
                     FD_CLR(client_fd, &wmask);
-                    FD_SET(actual_client, &rmask);
+                    if(!last_line){
+                    	FD_SET(actual_client, &rmask);
+                    }
                     if(last_line){
+                    	printf("BASE\n");
                         actual_client = -1;
                     	set_state_of_client(client_fd, 1);
                     	last_line = false;
@@ -286,9 +295,11 @@ int main(int argc, char *argv[]) {
 				actual_unique_id++;
 				write(i, unique_id, 2);
 				write(i, "\n", 2);
-				set_state_of_client(i, 2);
+				//set_state_of_client(i, 2);
 				FD_CLR(i, &wmask);
-				FD_SET(i, &rmask);
+				delete_client(i);
+				close(i);
+				//FD_SET(i, &rmask);
 			}
 		}
     	
