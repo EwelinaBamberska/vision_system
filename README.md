@@ -15,6 +15,7 @@ Projekt został zrealizowany w ramach przedmiotu na studiach.
 ### Zrzuty ekranu aplikacji
 
 ![alt text](https://imgur.com/BS7aR5G.png)
+
 _Zrzut ekranu aplikacji mobilnej_
 
 ![alt text](https://i.imgur.com/JQu1VpE.png)
