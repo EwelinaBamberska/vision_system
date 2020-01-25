@@ -1,0 +1,14 @@
+/mobile-client/*.iml
+/mobile-client/.gradle
+/mobile-client/local.properties
+/mobile-client/.idea/caches
+/mobile-client/.idea/libraries
+/mobile-client/.idea/modules.xml
+/mobile-client/.idea/workspace.xml
+/mobile-client/.idea/navEditor.xml
+/mobile-client/.idea/assetWizardSettings.xml
+/mobile-client/.DS_Store
+/mobile-client/build
+/mobile-client/captures
+/mobile-client/.externalNativeBuild
+/mobile-client/.cxx
